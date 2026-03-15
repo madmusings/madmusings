@@ -1,0 +1,190 @@
+/* ==========================================================================
+   MadMusings Article Swipe — Stylesheet
+   ==========================================================================
+   Scroll-snap-style horizontal navigation layered on top of
+   Elementor Pro page layouts.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Stage — full-viewport container that clips ghost panels
+   -------------------------------------------------------------------------- */
+#mm-swipe-stage {
+    position: relative;
+    width: 100%;
+    overflow-x: hidden;   /* hides the off-screen ghost panels */
+    /* Prevent the stage from creating a new stacking context that could
+       clip Elementor's sticky header — use clip instead of hidden if
+       you need position:fixed children inside. */
+}
+
+/* --------------------------------------------------------------------------
+   Panels — current article + ghost neighbours
+   -------------------------------------------------------------------------- */
+.mm-panel {
+    width: 100%;
+    /* GPU-accelerated transforms: browsers promote to their own layer */
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+}
+
+/* Current article: normal document flow */
+.mm-panel--current {
+    position: relative;
+    z-index: 1;
+    /* No transform by default; JS applies translateX during drag */
+}
+
+/* Ghost panels: absolutely positioned, off-screen until dragged in */
+.mm-panel--prev,
+.mm-panel--next {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    opacity: 0;                     /* hidden until JS reveals them */
+    pointer-events: none;           /* can't accidentally click a ghost */
+    background: var( --e-global-color-primary, #fff );
+
+    /* Flex layout for the peek card shown during drag */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+/* Peek thumbnail */
+.mm-panel__thumb {
+    width: 100%;
+    max-width: 420px;
+    max-height: 260px;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba( 0, 0, 0, .18 );
+}
+
+/* Peek title */
+.mm-panel__title {
+    font-family: var( --e-global-typography-primary-font-family, inherit );
+    font-size: clamp( 1.1rem, 3vw, 1.6rem );
+    font-weight: 700;
+    line-height: 1.25;
+    color: var( --e-global-color-text, #1a1a1a );
+    max-width: 560px;
+}
+
+/* Direction arrows on ghost panels */
+.mm-panel__arrow {
+    font-size: 2rem;
+    color: var( --e-global-color-accent, #c09a5b );
+    line-height: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Transition helpers (applied by JS)
+   -------------------------------------------------------------------------- */
+
+/* Applied during snap animation to smooth the slide */
+.mm-panel--animating {
+    transition:
+        transform  380ms cubic-bezier( 0.25, 0.46, 0.45, 0.94 ),
+        opacity    380ms ease;
+}
+
+/* Disable user text selection while dragging to avoid highlights */
+#mm-swipe-stage.mm-dragging,
+#mm-swipe-stage.mm-dragging * {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: grabbing;
+}
+
+/* --------------------------------------------------------------------------
+   First-visit hint overlay
+   -------------------------------------------------------------------------- */
+#mm-swipe-hint {
+    position: fixed;
+    bottom: 2.5rem;
+    left: 50%;
+    transform: translateX( -50% );
+    z-index: 9999;
+
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+
+    background: rgba( 0, 0, 0, .72 );
+    backdrop-filter: blur( 8px );
+    -webkit-backdrop-filter: blur( 8px );
+    color: #fff;
+    border-radius: 999px;
+    padding: .65rem 1.5rem;
+
+    font-family: var( --e-global-typography-primary-font-family, sans-serif );
+    font-size: .9rem;
+    letter-spacing: .03em;
+    white-space: nowrap;
+
+    /* Fade-in */
+    animation: mm-hint-in 0.5s ease both;
+    pointer-events: none;
+}
+
+.mm-hint__arrow {
+    font-size: 1.1rem;
+    opacity: .8;
+}
+
+.mm-hint__text {
+    opacity: .95;
+}
+
+/* Fade-out class added by JS */
+.mm-hint--fade {
+    animation: mm-hint-out .6s ease forwards;
+}
+
+@keyframes mm-hint-in {
+    from { opacity: 0; transform: translateX( -50% ) translateY( 12px ); }
+    to   { opacity: 1; transform: translateX( -50% ) translateY( 0 );    }
+}
+
+@keyframes mm-hint-out {
+    to   { opacity: 0; transform: translateX( -50% ) translateY( 12px ); }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced-motion: disable all animations for accessibility
+   -------------------------------------------------------------------------- */
+@media ( prefers-reduced-motion: reduce ) {
+    .mm-panel,
+    .mm-panel--prev,
+    .mm-panel--next,
+    .mm-panel--animating,
+    #mm-swipe-hint {
+        transition: none !important;
+        animation:  none !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive tweaks
+   -------------------------------------------------------------------------- */
+@media ( max-width: 480px ) {
+    .mm-panel__thumb {
+        max-height: 200px;
+    }
+    .mm-panel__title {
+        font-size: 1rem;
+    }
+    #mm-swipe-hint {
+        font-size: .8rem;
+        padding: .55rem 1.1rem;
+        bottom: 1.5rem;
+    }
+}
