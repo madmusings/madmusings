@@ -3,7 +3,7 @@
  * Plugin Name:  MadMusings Article Swipe
  * Plugin URI:   https://madmusings.com
  * Description:  Smooth horizontal swipe navigation between articles in the same magazine issue.
- * Version:      1.1.1
+ * Version:      1.1.2
  * Author:       MadMusings
  * License:      GPL-2.0-or-later
  * Text Domain:  madmusings-swipe
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MADMUSINGS_SWIPE_VERSION', '1.1.1' );
+define( 'MADMUSINGS_SWIPE_VERSION', '1.1.2' );
 define( 'MADMUSINGS_SWIPE_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'MADMUSINGS_SWIPE_URL',     plugin_dir_url( __FILE__ ) );
 
@@ -84,7 +84,29 @@ function madmusings_swipe_enqueue() {
 }
 
 /* -----------------------------------------------------------------------
- * 3. HELPER — find previous and next articles in the same issue
+ * 3. PREFETCH — hint the browser to load neighbour pages in the background
+ *    so navigation feels instant after a swipe.
+ * --------------------------------------------------------------------- */
+add_action( 'wp_head', 'madmusings_swipe_prefetch', 2 );
+function madmusings_swipe_prefetch() {
+    if ( ! is_singular( 'post' ) ) {
+        return;
+    }
+
+    $neighbours = madmusings_get_issue_neighbours( get_the_ID() );
+
+    foreach ( [ $neighbours['prev'], $neighbours['next'] ] as $nb ) {
+        if ( ! empty( $nb['url'] ) ) {
+            printf(
+                '<link rel="prefetch" href="%s" as="document">' . "\n",
+                esc_url( $nb['url'] )
+            );
+        }
+    }
+}
+
+/* -----------------------------------------------------------------------
+ * 4. HELPER — find previous and next articles in the same issue
  * --------------------------------------------------------------------- */
 function madmusings_get_issue_neighbours( int $post_id ): array {
     $result = [ 'prev' => null, 'next' => null ];
@@ -141,7 +163,7 @@ function madmusings_get_issue_neighbours( int $post_id ): array {
 }
 
 /* -----------------------------------------------------------------------
- * 4. OUTPUT ghost-panel overlay into the footer.
+ * 5. OUTPUT ghost-panel overlay into the footer.
  *
  *    IMPORTANT: We deliberately do NOT wrap the body content using
  *    wp_body_open hooks because Elementor Pro may handle that hook
