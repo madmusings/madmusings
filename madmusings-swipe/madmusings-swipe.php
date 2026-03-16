@@ -3,7 +3,7 @@
  * Plugin Name:  MadMusings Article Swipe
  * Plugin URI:   https://madmusings.com
  * Description:  Smooth horizontal swipe navigation between articles in the same magazine issue.
- * Version:      1.0.0
+ * Version:      1.1.0
  * Author:       MadMusings
  * License:      GPL-2.0-or-later
  * Text Domain:  madmusings-swipe
@@ -13,14 +13,16 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MADMUSINGS_SWIPE_VERSION', '1.0.0' );
+define( 'MADMUSINGS_SWIPE_VERSION', '1.1.0' );
 define( 'MADMUSINGS_SWIPE_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'MADMUSINGS_SWIPE_URL',     plugin_dir_url( __FILE__ ) );
 
 /* -----------------------------------------------------------------------
  * 1. TAXONOMY — "issue"
  * Register a custom taxonomy so articles can be grouped by magazine issue.
- * If you already have an "issue" taxonomy, delete this section.
+ * If you already have an "issue" taxonomy, delete this section and change
+ * the two 'issue' references in madmusings_get_issue_neighbours() to your
+ * existing taxonomy slug.
  * --------------------------------------------------------------------- */
 add_action( 'init', 'madmusings_register_issue_taxonomy' );
 function madmusings_register_issue_taxonomy() {
@@ -35,7 +37,7 @@ function madmusings_register_issue_taxonomy() {
                 'add_new_item'  => __( 'Add New Issue', 'madmusings-swipe' ),
                 'edit_item'     => __( 'Edit Issue', 'madmusings-swipe' ),
             ],
-            'hierarchical' => true,   // behaves like a category
+            'hierarchical' => true,
             'public'       => true,
             'show_in_rest' => true,
             'rewrite'      => [ 'slug' => 'issue' ],
@@ -54,7 +56,6 @@ function madmusings_swipe_enqueue() {
 
     $neighbours = madmusings_get_issue_neighbours( get_the_ID() );
 
-    // Only activate swipe when there are siblings in the same issue.
     if ( empty( $neighbours['prev'] ) && empty( $neighbours['next'] ) ) {
         return;
     }
@@ -71,15 +72,14 @@ function madmusings_swipe_enqueue() {
         MADMUSINGS_SWIPE_URL . 'assets/js/swipe.js',
         [],
         MADMUSINGS_SWIPE_VERSION,
-        true   // load in footer
+        true
     );
 
-    // Pass data to JS
     wp_localize_script( 'madmusings-swipe', 'madSwipe', [
         'prev'      => $neighbours['prev'],
         'next'      => $neighbours['next'],
-        'threshold' => 80,    // px drag before snap triggers
-        'duration'  => 380,   // ms for snap animation
+        'threshold' => 80,
+        'duration'  => 350,
     ] );
 }
 
@@ -94,7 +94,6 @@ function madmusings_get_issue_neighbours( int $post_id ): array {
         return $result;
     }
 
-    // Use the first issue term the post belongs to.
     $issue_id = (int) $issues[0];
 
     $posts_in_issue = get_posts( [
@@ -120,20 +119,18 @@ function madmusings_get_issue_neighbours( int $post_id ): array {
         return $result;
     }
 
-    // Previous article (swipe right → go back)
     if ( $current_index > 0 ) {
-        $prev_id          = $posts_in_issue[ $current_index - 1 ];
-        $result['prev']   = [
+        $prev_id        = $posts_in_issue[ $current_index - 1 ];
+        $result['prev'] = [
             'url'       => get_permalink( $prev_id ),
             'title'     => get_the_title( $prev_id ),
             'thumbnail' => get_the_post_thumbnail_url( $prev_id, 'medium' ) ?: '',
         ];
     }
 
-    // Next article (swipe left → go forward)
     if ( $current_index < count( $posts_in_issue ) - 1 ) {
-        $next_id          = $posts_in_issue[ $current_index + 1 ];
-        $result['next']   = [
+        $next_id        = $posts_in_issue[ $current_index + 1 ];
+        $result['next'] = [
             'url'       => get_permalink( $next_id ),
             'title'     => get_the_title( $next_id ),
             'thumbnail' => get_the_post_thumbnail_url( $next_id, 'medium' ) ?: '',
@@ -144,14 +141,20 @@ function madmusings_get_issue_neighbours( int $post_id ): array {
 }
 
 /* -----------------------------------------------------------------------
- * 4. INJECT swipe DOM wrapper around the page content
- *    Works alongside Elementor — wraps the <body> children in a stage.
+ * 4. OUTPUT ghost-panel overlay into the footer.
+ *
+ *    IMPORTANT: We deliberately do NOT wrap the body content using
+ *    wp_body_open hooks because Elementor Pro may handle that hook
+ *    differently across template modes (Canvas, Full-Width, Default).
+ *    The JavaScript (swipe.js) wraps the body content safely after the
+ *    DOM has fully loaded, which works with every Elementor template.
  * --------------------------------------------------------------------- */
-add_action( 'wp_body_open', 'madmusings_swipe_open_stage' );
-function madmusings_swipe_open_stage() {
+add_action( 'wp_footer', 'madmusings_swipe_output_overlay', 99 );
+function madmusings_swipe_output_overlay() {
     if ( ! is_singular( 'post' ) ) {
         return;
     }
+
     $neighbours = madmusings_get_issue_neighbours( get_the_ID() );
     if ( empty( $neighbours['prev'] ) && empty( $neighbours['next'] ) ) {
         return;
@@ -160,59 +163,39 @@ function madmusings_swipe_open_stage() {
     $prev = $neighbours['prev'];
     $next = $neighbours['next'];
     ?>
-    <div id="mm-swipe-stage" aria-live="polite">
+    <!-- MadMusings Article Swipe — ghost panels -->
+    <div id="mm-overlay-layer" aria-hidden="true">
 
-        <!-- Ghost panel — previous article (off-screen left) -->
         <?php if ( $prev ) : ?>
         <div id="mm-panel-prev"
              class="mm-panel mm-panel--prev"
-             aria-hidden="true"
              data-url="<?php echo esc_url( $prev['url'] ); ?>">
             <?php if ( $prev['thumbnail'] ) : ?>
             <img src="<?php echo esc_url( $prev['thumbnail'] ); ?>"
                  alt="<?php echo esc_attr( $prev['title'] ); ?>"
-                 class="mm-panel__thumb" loading="lazy">
+                 class="mm-panel__thumb"
+                 loading="lazy">
             <?php endif; ?>
             <span class="mm-panel__title"><?php echo esc_html( $prev['title'] ); ?></span>
-            <span class="mm-panel__arrow mm-panel__arrow--left" aria-hidden="true">&#8592;</span>
+            <span class="mm-panel__arrow" aria-hidden="true">&#8592; Previous</span>
         </div>
         <?php endif; ?>
 
-        <!-- Current article content (Elementor renders inside here) -->
-        <div id="mm-panel-current" class="mm-panel mm-panel--current">
-    <?php
-}
-
-add_action( 'wp_footer', 'madmusings_swipe_close_stage', 1 );
-function madmusings_swipe_close_stage() {
-    if ( ! is_singular( 'post' ) ) {
-        return;
-    }
-    $neighbours = madmusings_get_issue_neighbours( get_the_ID() );
-    if ( empty( $neighbours['prev'] ) && empty( $neighbours['next'] ) ) {
-        return;
-    }
-
-    $next = $neighbours['next'];
-    ?>
-        </div><!-- /#mm-panel-current -->
-
-        <!-- Ghost panel — next article (off-screen right) -->
         <?php if ( $next ) : ?>
         <div id="mm-panel-next"
              class="mm-panel mm-panel--next"
-             aria-hidden="true"
              data-url="<?php echo esc_url( $next['url'] ); ?>">
             <?php if ( $next['thumbnail'] ) : ?>
             <img src="<?php echo esc_url( $next['thumbnail'] ); ?>"
                  alt="<?php echo esc_attr( $next['title'] ); ?>"
-                 class="mm-panel__thumb" loading="lazy">
+                 class="mm-panel__thumb"
+                 loading="lazy">
             <?php endif; ?>
             <span class="mm-panel__title"><?php echo esc_html( $next['title'] ); ?></span>
-            <span class="mm-panel__arrow mm-panel__arrow--right" aria-hidden="true">&#8594;</span>
+            <span class="mm-panel__arrow" aria-hidden="true">Next &#8594;</span>
         </div>
         <?php endif; ?>
 
-    </div><!-- /#mm-swipe-stage -->
+    </div><!-- /#mm-overlay-layer -->
     <?php
 }

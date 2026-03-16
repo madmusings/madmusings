@@ -1,54 +1,62 @@
 /* ==========================================================================
-   MadMusings Article Swipe — Stylesheet
+   MadMusings Article Swipe — v1.1.0
    ==========================================================================
-   Scroll-snap-style horizontal navigation layered on top of
-   Elementor Pro page layouts.
+
+   Layout overview
+   ───────────────
+   <body>
+     #mm-content          ← JS-created wrapper; slides left/right during swipe
+       [full Elementor page content]
+     [position:fixed Elementor elements stay directly in <body> — untouched]
+     #mm-overlay-layer    ← position:fixed; holds ghost peek panels
+       #mm-panel-prev     ← peeks in from left while dragging right
+       #mm-panel-next     ← peeks in from right while dragging left
+     #mm-swipe-hint       ← first-visit tooltip (appended by JS)
+   </body>
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   Stage — full-viewport container that clips ghost panels
+   Content wrapper (created by JS)
    -------------------------------------------------------------------------- */
-#mm-swipe-stage {
-    position: relative;
-    width: 100%;
-    overflow-x: hidden;   /* hides the off-screen ghost panels */
-    /* Prevent the stage from creating a new stacking context that could
-       clip Elementor's sticky header — use clip instead of hidden if
-       you need position:fixed children inside. */
-}
-
-/* --------------------------------------------------------------------------
-   Panels — current article + ghost neighbours
-   -------------------------------------------------------------------------- */
-.mm-panel {
-    width: 100%;
-    /* GPU-accelerated transforms: browsers promote to their own layer */
+#mm-content {
+    /* GPU layer — avoids repaints during the swipe transform */
     will-change: transform;
     -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
 }
 
-/* Current article: normal document flow */
-.mm-panel--current {
-    position: relative;
-    z-index: 1;
-    /* No transform by default; JS applies translateX during drag */
-}
-
-/* Ghost panels: absolutely positioned, off-screen until dragged in */
-.mm-panel--prev,
-.mm-panel--next {
+/* --------------------------------------------------------------------------
+   Overlay layer — fixed, viewport-sized, clips the ghost panels
+   -------------------------------------------------------------------------- */
+#mm-overlay-layer {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 2;
-    opacity: 0;                     /* hidden until JS reveals them */
-    pointer-events: none;           /* can't accidentally click a ghost */
-    background: var( --e-global-color-primary, #fff );
+    z-index: 99999;
+    pointer-events: none;   /* transparent to taps/clicks while not swiping */
+    overflow: hidden;       /* clips panels that are off-screen */
+}
 
-    /* Flex layout for the peek card shown during drag */
+/* --------------------------------------------------------------------------
+   Ghost panels — peek-cards shown during drag
+   -------------------------------------------------------------------------- */
+.mm-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+
+    will-change: transform, opacity;
+    -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+
+    /* Full-bleed background so the panel always covers content beneath */
+    background: var( --e-global-color-primary, #ffffff );
+
+    /* Flex: centre the peek card vertically and horizontally */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -56,116 +64,105 @@
     gap: 1.25rem;
     padding: 2rem;
     text-align: center;
+
+    opacity: 0; /* JS controls opacity during drag; CSS sets the default */
 }
 
-/* Peek thumbnail */
+/* Start off-screen via CSS transform so there's no flash on page load */
+.mm-panel--prev { transform: translateX( -100% ); }
+.mm-panel--next { transform: translateX(  100% ); }
+
+/* Featured image thumbnail */
 .mm-panel__thumb {
     width: 100%;
-    max-width: 420px;
-    max-height: 260px;
+    max-width: 460px;
+    max-height: 280px;
     object-fit: cover;
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba( 0, 0, 0, .18 );
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba( 0, 0, 0, 0.20 );
+    flex-shrink: 0;
 }
 
-/* Peek title */
+/* Article title */
 .mm-panel__title {
     font-family: var( --e-global-typography-primary-font-family, inherit );
-    font-size: clamp( 1.1rem, 3vw, 1.6rem );
+    font-size: clamp( 1.05rem, 3vw, 1.55rem );
     font-weight: 700;
     line-height: 1.25;
     color: var( --e-global-color-text, #1a1a1a );
     max-width: 560px;
 }
 
-/* Direction arrows on ghost panels */
+/* "← Previous" / "Next →" label */
 .mm-panel__arrow {
-    font-size: 2rem;
+    font-family: var( --e-global-typography-secondary-font-family, inherit );
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
     color: var( --e-global-color-accent, #c09a5b );
-    line-height: 1;
+    text-transform: uppercase;
 }
 
 /* --------------------------------------------------------------------------
-   Transition helpers (applied by JS)
+   Prevent text selection and show grab cursor while dragging
    -------------------------------------------------------------------------- */
-
-/* Applied during snap animation to smooth the slide */
-.mm-panel--animating {
-    transition:
-        transform  380ms cubic-bezier( 0.25, 0.46, 0.45, 0.94 ),
-        opacity    380ms ease;
-}
-
-/* Disable user text selection while dragging to avoid highlights */
-#mm-swipe-stage.mm-dragging,
-#mm-swipe-stage.mm-dragging * {
+body.mm-dragging,
+body.mm-dragging * {
     user-select: none;
     -webkit-user-select: none;
-    cursor: grabbing;
+    cursor: grabbing !important;
 }
 
 /* --------------------------------------------------------------------------
-   First-visit hint overlay
+   First-visit hint
    -------------------------------------------------------------------------- */
 #mm-swipe-hint {
     position: fixed;
-    bottom: 2.5rem;
+    bottom: 2.25rem;
     left: 50%;
     transform: translateX( -50% );
-    z-index: 9999;
+    z-index: 100000;
 
     display: flex;
     align-items: center;
-    gap: .75rem;
+    gap: 0.65rem;
 
-    background: rgba( 0, 0, 0, .72 );
-    backdrop-filter: blur( 8px );
-    -webkit-backdrop-filter: blur( 8px );
+    background: rgba( 0, 0, 0, 0.70 );
+    backdrop-filter: blur( 10px );
+    -webkit-backdrop-filter: blur( 10px );
     color: #fff;
     border-radius: 999px;
-    padding: .65rem 1.5rem;
+    padding: 0.6rem 1.4rem;
 
-    font-family: var( --e-global-typography-primary-font-family, sans-serif );
-    font-size: .9rem;
-    letter-spacing: .03em;
+    font-size: 0.875rem;
+    letter-spacing: 0.02em;
     white-space: nowrap;
-
-    /* Fade-in */
-    animation: mm-hint-in 0.5s ease both;
     pointer-events: none;
+
+    animation: mm-hint-in 0.45s ease both;
 }
 
-.mm-hint__arrow {
-    font-size: 1.1rem;
-    opacity: .8;
-}
+.mm-hint__arrow { opacity: 0.75; }
 
-.mm-hint__text {
-    opacity: .95;
-}
-
-/* Fade-out class added by JS */
 .mm-hint--fade {
-    animation: mm-hint-out .6s ease forwards;
+    animation: mm-hint-out 0.55s ease forwards;
 }
 
 @keyframes mm-hint-in {
-    from { opacity: 0; transform: translateX( -50% ) translateY( 12px ); }
-    to   { opacity: 1; transform: translateX( -50% ) translateY( 0 );    }
+    from { opacity: 0; transform: translateX( -50% ) translateY( 10px ); }
+    to   { opacity: 1; transform: translateX( -50% ) translateY( 0 ); }
 }
 
 @keyframes mm-hint-out {
-    to   { opacity: 0; transform: translateX( -50% ) translateY( 12px ); }
+    to   { opacity: 0; transform: translateX( -50% ) translateY( 10px ); }
 }
 
 /* --------------------------------------------------------------------------
-   Reduced-motion: disable all animations for accessibility
+   Accessibility — honour prefers-reduced-motion
    -------------------------------------------------------------------------- */
 @media ( prefers-reduced-motion: reduce ) {
+    #mm-content,
     .mm-panel,
-    .mm-panel--prev,
-    .mm-panel--next,
-    .mm-panel--animating,
     #mm-swipe-hint {
         transition: none !important;
         animation:  none !important;
@@ -173,18 +170,10 @@
 }
 
 /* --------------------------------------------------------------------------
-   Responsive tweaks
+   Responsive adjustments
    -------------------------------------------------------------------------- */
 @media ( max-width: 480px ) {
-    .mm-panel__thumb {
-        max-height: 200px;
-    }
-    .mm-panel__title {
-        font-size: 1rem;
-    }
-    #mm-swipe-hint {
-        font-size: .8rem;
-        padding: .55rem 1.1rem;
-        bottom: 1.5rem;
-    }
+    .mm-panel__thumb  { max-height: 200px; }
+    .mm-panel__title  { font-size: 1rem; }
+    #mm-swipe-hint    { font-size: 0.78rem; bottom: 1.5rem; padding: 0.5rem 1.1rem; }
 }
