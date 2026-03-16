@@ -1,5 +1,5 @@
 /**
- * MadMusings Article Swipe — v1.1.0
+ * MadMusings Article Swipe — v1.1.1
  *
  * Architecture
  * ────────────
@@ -161,20 +161,14 @@
                 ghost.style.opacity = '1';
             }
 
-            // Navigate after animation completes
-            const navigate = function () {
-                try {
-                    window.location.href = targetUrl;
-                } catch ( e ) {
-                    window.location.replace( targetUrl );
-                }
-            };
-
-            // Primary: fire after animation
-            setTimeout( navigate, dur + 60 );
-
-            // Fallback: if the primary somehow stalls, force navigation
-            setTimeout( navigate, dur + 1200 );
+            // Navigate immediately — must stay within the user-gesture context
+            // (iOS Safari blocks window.location.href inside setTimeout).
+            // The browser begins loading the new page while the animation plays.
+            try {
+                window.location.href = targetUrl;
+            } catch ( e ) {
+                window.location.replace( targetUrl );
+            }
 
         } else {
             // Snap back to original position

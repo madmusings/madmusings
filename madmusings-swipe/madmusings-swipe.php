@@ -3,7 +3,7 @@
  * Plugin Name:  MadMusings Article Swipe
  * Plugin URI:   https://madmusings.com
  * Description:  Smooth horizontal swipe navigation between articles in the same magazine issue.
- * Version:      1.1.0
+ * Version:      1.1.1
  * Author:       MadMusings
  * License:      GPL-2.0-or-later
  * Text Domain:  madmusings-swipe
@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'MADMUSINGS_SWIPE_VERSION', '1.1.0' );
+define( 'MADMUSINGS_SWIPE_VERSION', '1.1.1' );
 define( 'MADMUSINGS_SWIPE_DIR',     plugin_dir_path( __FILE__ ) );
 define( 'MADMUSINGS_SWIPE_URL',     plugin_dir_url( __FILE__ ) );
 
