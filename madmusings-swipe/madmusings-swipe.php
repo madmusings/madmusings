@@ -149,7 +149,7 @@ function madmusings_get_issue_neighbours( int $post_id ): array {
  *    The JavaScript (swipe.js) wraps the body content safely after the
  *    DOM has fully loaded, which works with every Elementor template.
  * --------------------------------------------------------------------- */
-add_action( 'wp_footer', 'madmusings_swipe_output_overlay', 99 );
+add_action( 'wp_footer', 'madmusings_swipe_output_overlay', 1 );
 function madmusings_swipe_output_overlay() {
     if ( ! is_singular( 'post' ) ) {
         return;
